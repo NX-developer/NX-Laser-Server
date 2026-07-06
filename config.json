@@ -1,0 +1,6 @@
+{
+  "host": "0.0.0.0",
+  "port": 9339,
+  "message": "Welcome to NX Laser Server!\nBrawl Stars 20.93 private server.\nHandshake OK - you are connected.",
+  "send_login_ok": false
+}

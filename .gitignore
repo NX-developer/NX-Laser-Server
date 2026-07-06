@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+keys/server_private.key
+keys/server_public.key
+*.log
+.venv/
