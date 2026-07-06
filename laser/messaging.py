@@ -16,6 +16,20 @@ from .crypto import PepperSession
 HEADER_LEN = 7
 
 
+def hexdump(data: bytes, limit: int = 128) -> str:
+    """Compact hex dump for reverse-engineering the first packets."""
+    out = []
+    chunk = data[:limit]
+    for i in range(0, len(chunk), 16):
+        row = chunk[i:i + 16]
+        hexpart = " ".join(f"{b:02x}" for b in row)
+        asciipart = "".join(chr(b) if 32 <= b < 127 else "." for b in row)
+        out.append(f"      {i:04x}  {hexpart:<47}  {asciipart}")
+    if len(data) > limit:
+        out.append(f"      ... (+{len(data) - limit} more bytes)")
+    return "\n".join(out)
+
+
 class Connection:
     def __init__(self, reader, writer, server):
         self.reader = reader
@@ -23,6 +37,7 @@ class Connection:
         self.server = server
         self.peer = writer.get_extra_info("peername")
         self.session = PepperSession(server.server_sk, server.server_pk, self.log)
+        self.frame_count = 0
 
     def log(self, msg: str):
         self.server.log(f"[{self.peer[0]}:{self.peer[1]}] {msg}")
@@ -50,7 +65,14 @@ class Connection:
         try:
             while True:
                 mid, version, enc_payload = await self.read_frame()
+                self.frame_count += 1
                 self.log(f"<-- {messages.name(mid)} ({mid})  v{version}  {len(enc_payload)}B enc")
+
+                # Dump the first two raw frames verbatim: this is what tells us
+                # RC4 vs pepper and reveals the exact on-wire login structure.
+                if self.frame_count <= 2:
+                    self.log(f"    RAW frame #{self.frame_count} (id={mid}, {len(enc_payload)}B):\n"
+                             + hexdump(enc_payload))
 
                 try:
                     payload = self.session.decrypt(mid, enc_payload)
